@@ -63,7 +63,7 @@ export default function MatterportViewer({ onShowcaseLoaded }: MatterportViewerP
           height: '100%',
           border: 'none'
         }}
-        src="https://my.matterport.com/show/?m=m72PGKzeknR"
+        src="https://my.matterport.com/show/?m=m72PGKzeknR&disableTagNavigation=1"
         allow="xr-spatial-tracking"
       />
       {!isScriptLoaded && (

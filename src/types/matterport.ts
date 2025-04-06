@@ -20,7 +20,7 @@ export interface MatterportSDK {
     add: (params: TagData) => Promise<string[]>;
     list: () => Promise<Tag[]>;
     delete: (tagId: string) => Promise<void>;
-    open: (tagId: string) => Promise<void>;
+    open: (tagId: string, options?: TagOpenOptions) => Promise<void>;
     allowAction: (tagId: string, action: string) => Promise<void>;
     attach: (tagId: string, attachment: Attachment) => Promise<void>;
     detach: (tagId: string, attachmentId: string) => Promise<void>;
@@ -39,6 +39,7 @@ export interface MatterportSDK {
   };
   Camera: {
     moveTo: (params: CameraMoveToParams) => Promise<void>;
+    lookAt: (params: CameraLookAtParams) => Promise<void>;
     getPose: () => Promise<CameraPose>;
   };
   Scene: {
@@ -46,7 +47,10 @@ export interface MatterportSDK {
   };
   Graph: {
     createGraph: () => Promise<IDirectedGraph>;
+    createSweepGraph: () => Promise<IDirectedGraph>;
+    createDirectedGraph: () => Promise<IDirectedGraph>;
     createAStarRunner: (graph: IDirectedGraph, start: Vertex, end: Vertex) => IAStarRunner;
+    AStarRunner: new (graph: IDirectedGraph, start: Vertex, end: Vertex) => IAStarRunner;
     AStarStatus: {
       SUCCESS: string;
       RUNNING: string;
@@ -60,6 +64,16 @@ export interface MatterportSDK {
       get: () => Promise<string>;
     };
     createGraph: () => Promise<IDirectedGraph>;
+    getData: () => Promise<Record<string, SweepData>>;
+  };
+  App: {
+    state: {
+      waitUntil: (state: string) => Promise<void>;
+    };
+    State: {
+      PLAYING: string;
+    };
+    getState: () => any;
   };
 }
 
@@ -71,6 +85,15 @@ export interface CameraPose {
 
 export interface CameraMoveToParams {
   position: Vector3;
+  transition?: {
+    duration: number;
+    easing: string;
+  };
+}
+
+export interface CameraLookAtParams {
+  position: Vector3;
+  target: Vector3;
   transition?: {
     duration: number;
     easing: string;
@@ -140,4 +163,16 @@ export interface SceneData {
 export interface SweepData {
   position: Vector3;
   [key: string]: any;
+}
+
+export interface TagOpenOptions {
+  transition?: {
+    duration: number;
+    easing: string;
+  };
+  allowAction?: boolean;
+  openTags?: {
+    open: boolean;
+    close: boolean;
+  };
 } 

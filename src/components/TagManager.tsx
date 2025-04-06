@@ -46,98 +46,113 @@ export default function TagManager({ showcase }: TagManagerProps) {
     };
   }, [showcase]);
 
+
+  
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   const moveToOffice = async () => {
     if (!showcase || !officeTagId || isMoving) return;
-
+  
     try {
       setIsMoving(true);
-      
-      // Створюємо граф на основі точок у просторі
-      const sweepGraph = await showcase.Sweep.createGraph();
-      
-      // Отримуємо поточний sweep через Scene.getData()
-      const sceneData = await showcase.Scene.getData();
-      const currentSweepId = sceneData.sweep;
-      
-      // Отримуємо всі sweep точки
-      const sweeps = showcase.Sweep.data;
-      
-      // Знаходимо найближчий sweep до позиції тегу Office
-      let nearestSweep = null;
-      let minDistance = Infinity;
-      
-      for (const [sweepId, sweepData] of Object.entries(sweeps)) {
-        const dx = sweepData.position.x - OFFICE_TAG_DATA.anchorPosition.x;
-        const dy = sweepData.position.y - OFFICE_TAG_DATA.anchorPosition.y;
-        const dz = sweepData.position.z - OFFICE_TAG_DATA.anchorPosition.z;
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+      // Чекаємо, поки SDK повністю завантажиться
+      await delay(1000);
+
+      // Перевіряємо, які компоненти SDK доступні
+      const availableComponents = {
+        Sweep: !!showcase.Sweep,
+        Scene: !!showcase.Scene,
+        Graph: !!showcase.Graph,
+        Camera: !!showcase.Camera
+      };
+
+      console.log('Доступні компоненти SDK:', availableComponents);
+
+      // Якщо доступні необхідні компоненти для навігації
+      if (availableComponents.Sweep && availableComponents.Graph) {
+        // Перевіряємо доступні методи Sweep
+        console.log('Доступні методи Sweep:', Object.keys(showcase.Sweep));
         
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestSweep = sweepId;
+        // Отримуємо дані про всі точки огляду
+        const sweepsData = showcase.Sweep.data;
+        console.log('Дані про точки огляду:', sweepsData);
+
+        if (!sweepsData || Object.keys(sweepsData).length === 0) {
+          throw new Error('Не знайдено доступних точок огляду');
         }
-      }
-      
-      if (!nearestSweep || !currentSweepId) {
-        throw new Error('Could not find start or end point');
-      }
-      
-      // Отримуємо вершини графу
-      const startVertex = sweepGraph.vertex(currentSweepId);
-      const endVertex = sweepGraph.vertex(nearestSweep);
-      
-      if (!startVertex || !endVertex) {
-        throw new Error('Could not find vertices in graph');
-      }
-      
-      // Створюємо A* runner для пошуку шляху
-      const pathfinder = showcase.Graph.createAStarRunner(sweepGraph, startVertex, endVertex);
-      
-      // Отримуємо результат пошуку шляху
-      const result = pathfinder.exec();
-      
-      if (result.status === showcase.Graph.AStarStatus.SUCCESS) {
-        // Проходимо по кожній точці шляху
-        for (const point of result.path) {
-          if (!isMoving) break;
+
+        // Знаходимо найближчу точку огляду до офісу
+        let nearestSweep: string | null = null;
+        let minDistance = Infinity;
+    
+        for (const [sweepId, sweepInfo] of Object.entries(sweepsData)) {
+          const distance = Math.sqrt(
+            Math.pow(sweepInfo.position.x - OFFICE_TAG_DATA.anchorPosition.x, 2) +
+            Math.pow(sweepInfo.position.y - OFFICE_TAG_DATA.anchorPosition.y, 2) +
+            Math.pow(sweepInfo.position.z - OFFICE_TAG_DATA.anchorPosition.z, 2)
+          );
           
-          // Переміщуємося до кожної точки
-          await showcase.Sweep.moveTo(point.id, {
-            transition: {
-              duration: 1000,
-              easing: 'linear'
-            }
-          });
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestSweep = sweepId;
+          }
         }
-        
-        // Фінальне переміщення до точної позиції тегу
-        await showcase.Camera.moveTo({
-          position: OFFICE_TAG_DATA.anchorPosition,
+
+        if (!nearestSweep) {
+          throw new Error('Не вдалося знайти найближчу точку огляду до офісу');
+        }
+
+        console.log('Найближча точка огляду до офісу:', nearestSweep);
+
+        // Переміщуємося до найближчої точки огляду
+        await showcase.Sweep.moveTo(nearestSweep, {
           transition: {
-            duration: 1000,
-            easing: 'linear'
+            duration: 3000,
+            easing: 'easeInOut'
           }
         });
+
+        // Переміщуємо камеру до позиції офісу
+        if (availableComponents.Camera) {
+          await showcase.Camera.moveTo({
+            position: OFFICE_TAG_DATA.anchorPosition
+          });
+        }
       } else {
-        throw new Error('Could not find path');
+        throw new Error('Недостатньо доступних компонентів SDK для навігації');
       }
-      
-      // Очищуємо ресурси
-      sweepGraph.dispose();
-      
+  
     } catch (error) {
-      console.error('Error moving to Office:', error);
+      console.error('Помилка під час переміщення до Office:', error);
     } finally {
       setIsMoving(false);
     }
   };
+  
+  
+  
+  
 
   const teleportToOffice = async () => {
     if (!showcase || !officeTagId) return;
 
     try {
       setIsLoading(true);
-      await showcase.Tag.open(officeTagId);
+      
+      // Open tag with custom options
+      await showcase.Tag.open(officeTagId, {
+        transition: {
+          duration: 0, // Миттєве переміщення
+          easing: 'linear'
+        },
+        allowAction: true, // Дозволити дії з тегом
+        openTags: {
+          open: true, // Відкрити тег
+          close: false // Не закривати інші теги
+        }
+      });
+      
     } catch (error) {
       console.error('Error teleporting:', error);
     } finally {
